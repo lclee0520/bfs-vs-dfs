@@ -6,7 +6,6 @@
 
 | | URL |
 |---|---|
-| 배포 URL (Vercel) | https://bfs-vs-dfs.vercel.app |
 | 배포 URL (GitHub Pages) | https://lclee0520.github.io/bfs-vs-dfs/ |
 | GitHub | https://github.com/lclee0520/bfs-vs-dfs |
 
