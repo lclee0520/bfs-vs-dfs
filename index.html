@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BFS vs DFS 시각화</title>
+<style>
+  :root {
+    --bg: #f8fafc; --card: #ffffff; --ink: #0f172a; --muted: #475569; --line: #e2e8f0;
+    --bfs: #2563eb; --dfs: #ea580c; --ok: #16a34a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif; line-height: 1.55; }
+  header { padding: 28px 16px 8px; max-width: 1200px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  header p { margin: 0; color: var(--muted); }
+  main { max-width: 1200px; margin: 0 auto; padding: 0 16px 48px; }
+  .controls { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 12px 0;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
+  button:hover { background: #f1f5f9; }
+  button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls input[type=range] { flex: 1; min-width: 140px; }
+  .stepno { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 90px; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  @media (max-width: 860px) { .panels { grid-template-columns: 1fr; } }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; border-top: 5px solid; }
+  .panel.bfs { border-top-color: var(--bfs); }
+  .panel.dfs { border-top-color: var(--dfs); }
+  .panel h2 { margin: 0; font-size: 20px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .panel h2 small { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .steptitle { font-weight: 700; margin: 6px 0 0; min-height: 1.5em; }
+  svg.graph { width: 100%; height: auto; display: block; margin: 4px 0; }
+  .ds { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 40px; padding: 8px 10px;
+    background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; }
+  .ds b { font-size: 13px; color: var(--muted); margin-right: 4px; }
+  .box { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; font-weight: 700; color: #fff; }
+  .box.q { background: var(--bfs); }
+  .box.s { background: var(--dfs); }
+  .ds .hint { font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .explain { margin-top: 10px; display: grid; gap: 6px; }
+  .explain div { padding: 8px 12px; border-radius: 8px; font-size: 14.5px; }
+  .explain .what { background: #f1f5f9; }
+  .explain .why { background: #fefce8; }
+  .explain span.tag { font-weight: 700; margin-right: 6px; }
+  pre.code { margin: 10px 0 0; padding: 10px 0; background: #0f172a; color: #cbd5e1; border-radius: 10px; font-size: 12.5px; overflow-x: auto; }
+  pre.code span { display: block; padding: 0 12px; white-space: pre; }
+  pre.code span.hl { background: #334155; color: #fde68a; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 4px; }
+  section.info { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; margin-top: 16px; }
+  section.info h3 { margin: 0 0 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; }
+  .done { color: var(--ok); font-weight: 700; }
+  .table-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>BFS vs DFS: 무가중치 그래프에서 출발점→목표 경로 찾기</h1>
+  <p>정점 8개 무방향 그래프, 출발 1 → 목표 8, 인접 정점은 번호 오름차순으로 방문. 같은 단계 번호에서 두 알고리즘을 나란히 비교한다.</p>
+</header>
+<main>
+  <div class="controls">
+    <button id="first" title="처음">⏮ 처음</button>
+    <button id="prev">◀ 이전</button>
+    <button id="next" class="primary">다음 ▶</button>
+    <button id="last">끝 ⏭</button>
+    <button id="play">▶ 자동재생</button>
+    <input type="range" id="slider" min="0" value="0" aria-label="단계">
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="panels">
+    <div class="panel bfs">
+      <h2>BFS <small>너비 우선 · 큐(FIFO)</small></h2>
+      <div class="steptitle" id="bfs-title"></div>
+      <div id="bfs-graph"></div>
+      <div class="ds"><b>큐 (앞 → 뒤)</b><span id="bfs-ds"></span></div>
+      <div class="explain"><div class="what"><span class="tag">한 일</span><span id="bfs-what"></span></div>
+        <div class="why"><span class="tag">이유</span><span id="bfs-why"></span></div></div>
+      <pre class="code" id="bfs-code"></pre>
+      <div class="legend">
+        <span><i style="background:#1e40af"></i>d=0</span><span><i style="background:#2563eb"></i>d=1</span>
+        <span><i style="background:#60a5fa"></i>d=2</span><span><i style="background:#bfdbfe"></i>d=3</span>
+        <span><i style="border:3px solid #2563eb;background:#fff"></i>큐에서 대기</span>
+        <span><i style="border:3px solid #facc15;background:#fff"></i>지금 꺼낸 정점</span>
+      </div>
+    </div>
+    <div class="panel dfs">
+      <h2>DFS <small>깊이 우선 · 재귀 스택(LIFO)</small></h2>
+      <div class="steptitle" id="dfs-title"></div>
+      <div id="dfs-graph"></div>
+      <div class="ds"><b>재귀 스택 (바닥 → 꼭대기)</b><span id="dfs-ds"></span></div>
+      <div class="explain"><div class="what"><span class="tag">한 일</span><span id="dfs-what"></span></div>
+        <div class="why"><span class="tag">이유</span><span id="dfs-why"></span></div></div>
+      <pre class="code" id="dfs-code"></pre>
+      <div class="legend">
+        <span><i style="background:#ea580c"></i>스택 위(탐색 중)</span>
+        <span><i style="background:#a8a29e"></i>되돌아온 정점(끝남)</span>
+        <span><i style="border:3px solid #facc15;background:#fff"></i>현재 정점</span>
+        <span>#k = k번째로 방문</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="info">
+    <h3>결과 비교 (실제 실행 결과)</h3>
+    <div class="table-wrap"><table id="result"></table></div>
+  </section>
+
+  <section class="info">
+    <h3>복잡도 비교</h3>
+    <div class="table-wrap"><table>
+      <tr><th>항목</th><th>BFS</th><th>DFS</th></tr>
+      <tr><td>시간 (인접 리스트)</td><td>O(V + E)</td><td>O(V + E)</td></tr>
+      <tr><td>시간 (인접 행렬)</td><td>O(V²)</td><td>O(V²)</td></tr>
+      <tr><td>추가 공간</td><td>O(V): 큐 + visited + parent</td><td>O(V): 재귀 스택 + visited + parent</td></tr>
+      <tr><td>공간을 많이 쓰는 경우</td><td>한 레벨에 정점이 많은 넓은 그래프</td><td>경로가 긴 좁고 깊은 그래프</td></tr>
+      <tr><td>최단 경로 보장</td><td>무가중치 그래프에서 보장</td><td>보장하지 않음</td></tr>
+    </table></div>
+    <p>두 알고리즘 모두 각 정점을 최대 한 번 방문하고, 방문한 정점의 인접 리스트를 한 번씩 훑는다. 무방향 그래프에서 인접 리스트 길이의 합은 2E이므로 전체 O(V + E)이다. 인접 행렬이면 정점마다 한 행(V칸)을 훑어야 하므로 O(V²)이 된다.</p>
+  </section>
+</main>
+<script src="algo.js"></script>
+<script>
+  const bfs = traceBFS(), dfs = traceDFS();
+  const maxStep = Math.max(bfs.steps.length, dfs.steps.length) - 1;
+  const slider = document.getElementById('slider');
+  slider.max = maxStep;
+  let k = 0, timer = null;
+
+  function codeHTML(lines, active) {
+    return lines.map((l, i) => `<span class="${active.includes(i) ? 'hl' : ''}">${l.replace(/</g, '&lt;')}</span>`).join('');
+  }
+
+  function renderPanel(id, trace, algo) {
+    const i = Math.min(k, trace.steps.length - 1);
+    const st = trace.steps[i];
+    const ended = k > trace.steps.length - 1;
+    document.getElementById(id + '-title').innerHTML =
+      `단계 ${i}/${trace.steps.length - 1} · ${st.title}` + (st.done ? ' <span class="done">✔ 종료</span>' : '');
+    document.getElementById(id + '-graph').innerHTML = graphSVG(st, algo, { id });
+    document.getElementById(id + '-ds').innerHTML = algo === 'bfs'
+      ? boxesHTML(st.queue, 'q') : boxesHTML(st.stack, 's');
+    document.getElementById(id + '-what').textContent = st.what;
+    document.getElementById(id + '-why').textContent = ended ? '이미 탐색이 끝났다. 다른 쪽이 끝날 때까지 결과를 유지한다.' : st.why;
+    document.getElementById(id + '-code').innerHTML = codeHTML(algo === 'bfs' ? BFS_CODE : DFS_CODE, st.lines);
+  }
+
+  function render() {
+    renderPanel('bfs', bfs, 'bfs');
+    renderPanel('dfs', dfs, 'dfs');
+    slider.value = k;
+    document.getElementById('stepno').textContent = `단계 ${k} / ${maxStep}`;
+  }
+
+  function go(n) { k = Math.max(0, Math.min(maxStep, n)); render(); }
+  document.getElementById('first').onclick = () => go(0);
+  document.getElementById('prev').onclick = () => go(k - 1);
+  document.getElementById('next').onclick = () => go(k + 1);
+  document.getElementById('last').onclick = () => go(maxStep);
+  slider.oninput = () => go(+slider.value);
+  const playBtn = document.getElementById('play');
+  playBtn.onclick = () => {
+    if (timer) { clearInterval(timer); timer = null; playBtn.textContent = '▶ 자동재생'; return; }
+    if (k === maxStep) go(0);
+    playBtn.textContent = '⏸ 정지';
+    timer = setInterval(() => { if (k >= maxStep) playBtn.click(); else go(k + 1); }, 2200);
+  };
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') go(k + 1);
+    if (e.key === 'ArrowLeft') go(k - 1);
+  });
+
+  document.getElementById('result').innerHTML = `
+    <tr><th>항목</th><th>BFS</th><th>DFS</th></tr>
+    <tr><td>찾은 경로</td><td>${bfs.path.join(' → ')}</td><td>${dfs.path.join(' → ')}</td></tr>
+    <tr><td>경로 길이(간선 수)</td><td><b>${bfs.path.length - 1}</b> (최단)</td><td><b>${dfs.path.length - 1}</b></td></tr>
+    <tr><td>처리한 정점 수</td><td>${bfs.processedCount}개 (큐에서 꺼낸 정점)</td><td>${dfs.visitedCount}개 (재귀 호출된 정점)</td></tr>
+    <tr><td>발견했지만 처리 안 한 정점</td><td>${bfs.discoveredCount - bfs.processedCount}개 (6: 큐에 남은 채 종료)</td><td>없음 (3은 아예 발견도 안 됨)</td></tr>
+    <tr><td>단계 수</td><td>${bfs.steps.length - 1}</td><td>${dfs.steps.length - 1}</td></tr>`;
+  render();
+</script>
+</body>
+</html>
